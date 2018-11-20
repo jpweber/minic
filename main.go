@@ -31,40 +31,18 @@ func main() {
 	}
 	fileParts := strings.Split(src, "/")
 	bucketName := fileParts[0]
+	filePath := strings.Join(fileParts[1:], "/")
+
 	// first check if specified bucket exists
 	bucketExists(minClient, bucketName)
 
-	// determine if the user is trying to recursively download files in a dir
-	// or a single file.
-
-	// single file
-	if len(fileParts) > 1 {
-		fileName := fileParts[len(fileParts)-1]
-		// converting file name to array so it is easy to reuse the same
-		// fucntion for grabbing list of files
-		filesToDownload := []string{fileName}
-		getFiles(minClient, filesToDownload, bucketName, dest)
+	// get list of remote file(s) to download
+	remoteFiles, err := listObjects(minClient, bucketName, filePath)
+	if err != nil {
+		log.Fatalln("Error listing objects in ", bucketName, err)
 	}
 
-	// files in a dir
-	if len(fileParts) == 1 {
-		// we are grabbing a while dir recursively
-		// first get list of files
-		remoteFiles, err := listObjects(minClient, bucketName)
-		if err != nil {
-			log.Fatalln("Error listing objects in ", bucketName, err)
-		}
-
-		// check if files already exist in destination, if not download them
-		// localFiles := listLocalFiles(dest)
-
-		// now determine files we have to actually download
-		// and which ones we can skip
-		// filesToDownload := newFiles(remoteFiles, localFiles)
-
-		// go get them files
-		getFiles(minClient, remoteFiles, bucketName, dest)
-
-	}
+	// go get them files
+	getFiles(minClient, remoteFiles, bucketName, dest)
 
 }
