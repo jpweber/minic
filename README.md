@@ -18,16 +18,6 @@ export SECRETKEY="xs3fx83cMkV7Oh+6jlGGTt9kTmT5D6yoQLm9+L5X"
 export DEST="/tmp/minio-tests/examples"
 ```
 
-Or for a single file
-
-```
-export MINIO_URL="192.168.2.66:9000"
-export SRC="vectorizer/roles"
-export ACCESSKEY="LEB3JJ3OCBN4HTDIS5IZ"
-export SECRETKEY="xs3fx83cMkV7Oh+6jlGGTt9kTmT5D6yoQLm9+L5X"
-export DEST="/tmp/minio-tests/examples/roles"
-```
-
 ### Docker
 
 ``` shell
