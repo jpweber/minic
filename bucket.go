@@ -16,13 +16,13 @@ func bucketExists(client *minio.Client, bucketName string) {
 	if found {
 		log.Println(bucketName, "Bucket found.")
 	} else {
-		log.Fatalln("Bucket not found.", bucketName)
+		log.Fatalln("Bucket not found -", bucketName)
 
 	}
 }
 
 // listing objects in a bucket
-func listObjects(client *minio.Client, bucketName string) ([]string, error) {
+func listObjects(client *minio.Client, bucketName, filePath string) ([]string, error) {
 
 	// Create a done channel to control 'ListObjectsV2' go routine.
 	doneCh := make(chan struct{})
@@ -31,7 +31,7 @@ func listObjects(client *minio.Client, bucketName string) ([]string, error) {
 	defer close(doneCh)
 
 	isRecursive := true
-	objectCh := client.ListObjectsV2(bucketName, "", isRecursive, doneCh)
+	objectCh := client.ListObjectsV2(bucketName, filePath, isRecursive, doneCh)
 	remoteFiles := []string{}
 	for object := range objectCh {
 		if object.Err != nil {

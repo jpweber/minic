@@ -4,9 +4,11 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
+	"sync"
+
+	minio "github.com/minio/minio-go"
 )
 
 func hasher(filePath string) (string, error) {
@@ -46,6 +48,7 @@ func checksumMatch(remoteChecksum, localFilePath string) bool {
 	// check if local file exists. If not return false right away
 	_, err := os.Stat(localFilePath)
 	if err != nil {
+		log.Println("Could not find file", localFilePath, "locally to checksum")
 		return false
 	}
 
@@ -65,26 +68,48 @@ func checksumMatch(remoteChecksum, localFilePath string) bool {
 	return false
 }
 
-func listLocalFiles(dir string) map[string]bool {
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		log.Fatal("Error reading local directory", err)
+func getFiles(client *minio.Client, filesToDownload []string, bucketName, dest string) {
+
+	concurrency := 2
+	workerPool := make(chan bool, concurrency)
+	for i := 0; i < concurrency; i++ {
+		workerPool <- true
 	}
 
-	localFiles := make(map[string]bool)
-	for _, f := range files {
-		localFiles[f.Name()] = true
-	}
+	var wg sync.WaitGroup
+	wg.Add(len(filesToDownload))
 
-	return localFiles
-}
+	for _, fileName := range filesToDownload {
+		<-workerPool
+		// DEBUG
+		// log.Println("Stat", bucketName, fileName)
+		go func(wg *sync.WaitGroup, fileName string) {
+			stat, err := client.StatObject(bucketName, fileName, minio.StatObjectOptions{})
+			if err != nil {
+				log.Fatalln(err)
+			}
 
-func newFiles(remoteFiles, localFiles map[string]bool) []string {
-	filesToDownload := []string{}
-	for k := range remoteFiles {
-		if localFiles[k] == false {
-			filesToDownload = append(filesToDownload, k)
-		}
+			// if the checksums match we don't need to download because they are
+			// the same thing
+			if checksumMatch(stat.ETag, dest+"/"+fileName) {
+				workerPool <- true
+				wg.Done()
+				return
+			}
+
+			log.Println("downloading", dest+"/"+fileName)
+			// Spin this out in to go routines so we can download concurrently.
+			// might want to buffer this with channels though so we don't saturate things
+			err = client.FGetObject(bucketName, fileName, dest+"/"+fileName, minio.GetObjectOptions{})
+			if err != nil {
+				log.Println("Error downloading file ", err)
+				return
+			}
+
+			workerPool <- true
+			wg.Done()
+		}(&wg, fileName)
+
 	}
-	return filesToDownload
+	wg.Wait()
 }
