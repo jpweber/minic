@@ -10,7 +10,7 @@ import (
 
 func main() {
 
-	minioUrl := os.Getenv("MINIO_URL")
+	minioURL := os.Getenv("MINIO_URL")
 	accessKey := os.Getenv("ACCESSKEY")
 	secretKey := os.Getenv("SECRETKEY")
 	src := os.Getenv("SRC")
@@ -25,7 +25,7 @@ func main() {
 	// New returns an Amazon S3 compatible client object. API compatibility (v2 or v4) is automatically
 	// determined based on the Endpoint value.
 	// TODO: fetch this from env vars or config file
-	minClient, err := minio.New(minioUrl, accessKey, secretKey, false)
+	minClient, err := minio.New(minioURL, accessKey, secretKey, false)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -56,18 +56,14 @@ func main() {
 		}
 
 		// check if files already exist in destination, if not download them
-		localFiles := listLocalFiles(dest)
+		// localFiles := listLocalFiles(dest)
 
 		// now determine files we have to actually download
 		// and which ones we can skip
-		filesToDownload := newFiles(remoteFiles, localFiles)
+		// filesToDownload := newFiles(remoteFiles, localFiles)
 
-		if len(filesToDownload) == 0 {
-			log.Println("No new files. Not downloading anything")
-		} else {
-			// go get them files
-			getFiles(minClient, filesToDownload, bucketName, dest)
-		}
+		// go get them files
+		getFiles(minClient, remoteFiles, bucketName, dest)
 
 	}
 

@@ -22,7 +22,7 @@ func bucketExists(client *minio.Client, bucketName string) {
 }
 
 // listing objects in a bucket
-func listObjects(client *minio.Client, bucketName string) (map[string]bool, error) {
+func listObjects(client *minio.Client, bucketName string) ([]string, error) {
 
 	// Create a done channel to control 'ListObjectsV2' go routine.
 	doneCh := make(chan struct{})
@@ -32,12 +32,12 @@ func listObjects(client *minio.Client, bucketName string) (map[string]bool, erro
 
 	isRecursive := true
 	objectCh := client.ListObjectsV2(bucketName, "", isRecursive, doneCh)
-	remoteFiles := make(map[string]bool)
+	remoteFiles := []string{}
 	for object := range objectCh {
 		if object.Err != nil {
 			return remoteFiles, object.Err
 		}
-		remoteFiles[object.Key] = true
+		remoteFiles = append(remoteFiles, object.Key)
 	}
 	return remoteFiles, nil
 }
