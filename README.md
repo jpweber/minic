@@ -1,6 +1,7 @@
-# Minio downloader for init containers
+# Minic
 
-For downloading data from minio to your container to populate your PV
+Download data from minio via an init container. Useful pre-loading volumes for stateful applications, or anything that needs data before the applications starts. 
+
 
 ## Parameters
 Parameters are read from the following environment variables  
@@ -15,18 +16,9 @@ Special note for the `DEST` paramert. If you are downloading all files from a di
 
 
 
-## Using Minic as init container in Kubernetes
+## Using it as init container in Kubernetes
 
-#### Create Secret to Store Access and Secret Keys
-Because the access key and secret key should not sit in plane text in a git repo or `ConfigMap`. These credential will be stored in Kubernetes as a `Secret`
-
-``` shell
-Kubectl create secret generic minio-creds --from-literal=accesskey=youraccesskeyhere --from-literal=secretkey=yoursecretkeyhere 
-```
-
-#### Modify Container Spec
-Include this in your current deployment. Modify the `env` values to match your environment.  
-The name of the container can be changed to whatever you wish
+Include this in your current deployment. Modify the `env` values to match your environment.  The name of the container can be changed to whatever you wish. Below example asssumes you already have a mount named `db-storage` in your main container. This should match where your primary container is going to read its data. 
 
 ``` yaml
  initContainers:
@@ -36,15 +28,9 @@ The name of the container can be changed to whatever you wish
     - name: MINIO_URL
       value: "minio.k8sdev.example.com"
     - name: ACCESSKEY
-      valueFrom:
-        secretKeyRef:
-          name: minio-creds
-          key: accesskey
+      value: "AKIAIOSFODNN7EXAMPLE"
     - name: SECRETKEY
-      valueFrom:
-        secretKeyRef:
-          name: minio-creds
-          key: secretkey
+      value: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
     - name: SRC
       value: "training-data/foo/"
     - name: DEST
@@ -54,7 +40,8 @@ The name of the container can be changed to whatever you wish
       name: db-storage
 ```
 
-Assumes you already have a mount named `db-storage` in your main container. 
+TODO:
+Create a secret to hold your access and secret keys
 
 ## Run locally for testing
 
