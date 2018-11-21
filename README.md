@@ -36,15 +36,15 @@ The name of the container can be changed to whatever you wish
     - name: MINIO_URL
       value: "minio.k8sdev.example.com"
     - name: ACCESSKEY
-			valueFrom:
-          secretKeyRef:
-            name: minio-creds
-            key: accesskey
+	  valueFrom:
+        secretKeyRef:
+          name: minio-creds
+          key: accesskey
     - name: SECRETKEY
-			valueFrom:
-          secretKeyRef:
-            name: minio-creds
-            key: secretkey
+	  valueFrom:
+        secretKeyRef:
+          name: minio-creds
+          key: secretkey
     - name: SRC
       value: "training-data/foo/"
     - name: DEST
