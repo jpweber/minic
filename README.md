@@ -36,12 +36,12 @@ The name of the container can be changed to whatever you wish
     - name: MINIO_URL
       value: "minio.k8sdev.example.com"
     - name: ACCESSKEY
-	  valueFrom:
+      valueFrom:
         secretKeyRef:
           name: minio-creds
           key: accesskey
     - name: SECRETKEY
-	  valueFrom:
+      valueFrom:
         secretKeyRef:
           name: minio-creds
           key: secretkey
