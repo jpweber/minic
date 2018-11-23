@@ -63,8 +63,9 @@ func hasher(dataChunk []byte) string {
 
 }
 
+
 // checksumMatch - returns true if they match, false if they do not match
-func checksumMatch(remoteChecksum, localFilePath string, multiPart bool) bool {
+func checksumMatch(remoteChecksum, localFilePath string, numParts int) bool {
 
 	// check if local file exists. If not return false right away
 	_, err := os.Stat(localFilePath)
@@ -74,8 +75,46 @@ func checksumMatch(remoteChecksum, localFilePath string, multiPart bool) bool {
 	}
 
 	// get md5sum of local file
-	// change the input to hasher to be the output from chunker
-	localChecksum := hasher(localFilePath)
+	file, err := fileOpener(localFilePath)
+	if err != nil {
+		log.Println("Error opening file", err)
+		return false
+	}
+	defer file.Close()
+
+	// init var to pass to hasher
+	localBytes := []byte{}
+	if numParts == 1 {
+		//the hash is of the single file, not the combined chunks
+		fileInfo, err := file.Stat()
+		if err != nil {
+			log.Println("Error stating local file", localFilePath, err)
+			return false
+		}
+		localBytes = chunker(fi.Size,0,file)
+		
+	}else{
+		// we are dealing with a hash that is comprised of multiple chunks
+		chunkHashes := []string
+		
+		// assuming 64mb file size for now
+		chunkSize := 64000
+		offSet := 0
+		for i := 0 ; i < numParts ; i++ {
+			chunkBytes := chunker(chunkSize, offSet, file)
+			chunkHash := hasher(chunkBytes)
+			chunkHashes = append(chunkHashes, chunkHash)
+			offset += chunkSize
+		}
+		
+		// DEBUG
+		fmt.Println(chunkHashes)
+		combinedChunkHashes := strings.Join(chunkHashes, "")
+		localBytes = []byte(combinedChunkHashes)
+		
+	}
+	
+	localChecksum := hasher(localBytes)
 	if err != nil {
 		log.Println("Error getting local md5 checksum", err)
 		return false
@@ -87,7 +126,9 @@ func checksumMatch(remoteChecksum, localFilePath string, multiPart bool) bool {
 	if localChecksum == remoteChecksum {
 		return true
 	}
+	// return false by default
 	return false
+	
 }
 
 func getFiles(client *minio.Client, filesToDownload []string, bucketName, dest string) {
@@ -112,15 +153,17 @@ func getFiles(client *minio.Client, filesToDownload []string, bucketName, dest s
 			}
 
 			// read type from stat object to see if it is an octet stream
-			// if it is we need to do the multi part hashing
-			multiPart := false
+			// if it is we need to do the multi part hashing. The minio Etag format
+			// is hash-numberofparts. Figure out the number of parts for use later
+			multiPartCount := 1
 			if stat.ContentType == "application/octet-stream" {
-				multiPart = true
+				multiPartCount = strings.Split(stat.Etag, "-")[1]
 			}
+			
 			// if the checksums match we don't need to download because they are
 			// the same thing
 			log.Println("Etag from", bucketName, fileName)
-			if checksumMatch(stat.ETag, dest+"/"+fileName) {
+			if checksumMatch(stat.ETag, dest+"/"+fileName, multiPartCount) {
 				workerPool <- true
 				wg.Done()
 				return
