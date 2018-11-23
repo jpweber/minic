@@ -11,40 +11,62 @@ import (
 	minio "github.com/minio/minio-go"
 )
 
-func hasher(filePath string) (string, error) {
-	//Initialize variable returnMD5String now in case an error has to be returned
-	var returnMD5String string
-
+func fileOpener(filePath string) (*os.File, error) {
 	//Open the passed argument and check for any error
-	log.Println("Opening", filePath, "to hash contents")
 	file, err := os.Open(filePath)
 	if err != nil {
-		return returnMD5String, err
+		return nil, err
 	}
 
 	//Tell the program to call the following function when the current function returns
-	defer file.Close()
+// 	defer file.Close()
+	// we can't actually defer close here we need to hold it open and close it later when we are done chunking
+	
+}
 
+
+func chunker(chunkSize, offSet int64, file *os.File) ([]byte, error) {
+	// create byte array to store our chunk of bytes
+	byteChunk := make([]byte, chunkSize)
+	
+	// seek to the correct position of the file 
+	// When needing to hash mult-part files each part is hashed on its own
+	// we have to seek to the right part of the file to read in just those bytes 
+	// as if we were uploading the file
+	_, err = file.Seek(offset, 0)
+   	if err != nil {
+        return nil, err
+    }
+		
+		// read in our chunk of data
+    byteNum, err := file.Read(byteChunk)
+    if err != nil {
+        return nil, err
+    }
+		
+		return byteChunk, nil
+}
+
+func hasher(dataChunk []byte) string {
+	
+	//Initialize variable returnMD5String now in case an error has to be returned
+	var md5String string
+	
 	//Open a new hash interface to write to
 	hash := md5.New()
 
-	//Copy the file in the hash interface and check for any error
-	if _, err := io.Copy(hash, file); err != nil {
-		return returnMD5String, err
-	}
-
 	//Get the 16 bytes hash
-	hashInBytes := hash.Sum(nil)[:16]
+	hashInBytes := hash.Sum(dataChunk)[:16]
 
 	//Convert the bytes to a string
-	returnMD5String = hex.EncodeToString(hashInBytes)
+	md5String = hex.EncodeToString(hashInBytes)
 
-	return returnMD5String, nil
+	return md5String
 
 }
 
 // checksumMatch - returns true if they match, false if they do not match
-func checksumMatch(remoteChecksum, localFilePath string) bool {
+func checksumMatch(remoteChecksum, localFilePath string, multiPart bool) bool {
 
 	// check if local file exists. If not return false right away
 	_, err := os.Stat(localFilePath)
@@ -89,7 +111,13 @@ func getFiles(client *minio.Client, filesToDownload []string, bucketName, dest s
 			if err != nil {
 				log.Fatalln(err)
 			}
-
+			
+			// read type from stat object to see if it is an octet stream
+			// if it is we need to do the multi part hashing
+			multiPart := false
+			if stat.ContentType == "application/octet-stream" {
+				multiPart = true
+			}
 			// if the checksums match we don't need to download because they are
 			// the same thing
 			log.Println("Etag from", bucketName, fileName)
