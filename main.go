@@ -42,6 +42,8 @@ func main() {
 		log.Fatalln("Error listing objects in ", bucketName, err)
 	}
 
+	log.Println("list of files to check", remoteFiles)
+
 	// go get them files
 	getFiles(minClient, remoteFiles, bucketName, dest)
 

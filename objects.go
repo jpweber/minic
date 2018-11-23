@@ -16,6 +16,7 @@ func hasher(filePath string) (string, error) {
 	var returnMD5String string
 
 	//Open the passed argument and check for any error
+	log.Println("Opening", filePath, "to hash contents")
 	file, err := os.Open(filePath)
 	if err != nil {
 		return returnMD5String, err
@@ -60,7 +61,7 @@ func checksumMatch(remoteChecksum, localFilePath string) bool {
 	}
 
 	// DEBUG
-	// fmt.Println("Local Sum:", localChecksum, "Remote Sum:", remoteChecksum)
+	log.Println("Local Sum:", localChecksum, "Remote Sum:", remoteChecksum)
 	// compare local md5 with remote md5
 	if localChecksum == remoteChecksum {
 		return true
@@ -91,6 +92,7 @@ func getFiles(client *minio.Client, filesToDownload []string, bucketName, dest s
 
 			// if the checksums match we don't need to download because they are
 			// the same thing
+			log.Println("Etag from", bucketName, fileName)
 			if checksumMatch(stat.ETag, dest+"/"+fileName) {
 				workerPool <- true
 				wg.Done()
