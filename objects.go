@@ -3,8 +3,11 @@ package main
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 
 	minio "github.com/minio/minio-go"
@@ -20,7 +23,7 @@ func fileOpener(filePath string) (*os.File, error) {
 	//Tell the program to call the following function when the current function returns
 	// 	defer file.Close()
 	// we can't actually defer close here we need to hold it open and close it later when we are done chunking
-
+	return file, nil
 }
 
 func chunker(chunkSize, offSet int64, file *os.File) ([]byte, error) {
@@ -37,7 +40,7 @@ func chunker(chunkSize, offSet int64, file *os.File) ([]byte, error) {
 	}
 
 	// read in our chunk of data
-	byteNum, err := file.Read(byteChunk)
+	_, err = file.Read(byteChunk)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +65,6 @@ func hasher(dataChunk []byte) string {
 	return md5String
 
 }
-
 
 // checksumMatch - returns true if they match, false if they do not match
 func checksumMatch(remoteChecksum, localFilePath string, numParts int) bool {
@@ -91,29 +93,36 @@ func checksumMatch(remoteChecksum, localFilePath string, numParts int) bool {
 			log.Println("Error stating local file", localFilePath, err)
 			return false
 		}
-		localBytes = chunker(fi.Size,0,file)
-		
-	}else{
+		localBytes, err = chunker(fileInfo.Size(), 0, file)
+		if err != nil {
+			return false
+		}
+
+	} else {
 		// we are dealing with a hash that is comprised of multiple chunks
-		chunkHashes := []string
-		
+		chunkHashes := []string{}
+
 		// assuming 64mb file size for now
 		chunkSize := 64000
 		offSet := 0
-		for i := 0 ; i < numParts ; i++ {
-			chunkBytes := chunker(chunkSize, offSet, file)
+		for i := 0; i < numParts; i++ {
+			chunkBytes, err := chunker(int64(chunkSize), int64(offSet), file)
+			if err != nil {
+				log.Println("Error getting bytes for chunk", err)
+				return false
+			}
 			chunkHash := hasher(chunkBytes)
 			chunkHashes = append(chunkHashes, chunkHash)
-			offset += chunkSize
+			offSet += chunkSize
 		}
-		
+
 		// DEBUG
 		fmt.Println(chunkHashes)
 		combinedChunkHashes := strings.Join(chunkHashes, "")
 		localBytes = []byte(combinedChunkHashes)
-		
+
 	}
-	
+
 	localChecksum := hasher(localBytes)
 	if err != nil {
 		log.Println("Error getting local md5 checksum", err)
@@ -128,7 +137,7 @@ func checksumMatch(remoteChecksum, localFilePath string, numParts int) bool {
 	}
 	// return false by default
 	return false
-	
+
 }
 
 func getFiles(client *minio.Client, filesToDownload []string, bucketName, dest string) {
@@ -157,9 +166,10 @@ func getFiles(client *minio.Client, filesToDownload []string, bucketName, dest s
 			// is hash-numberofparts. Figure out the number of parts for use later
 			multiPartCount := 1
 			if stat.ContentType == "application/octet-stream" {
-				multiPartCount = strings.Split(stat.Etag, "-")[1]
+				ETagCount, _ := strconv.Atoi(strings.Split(stat.ETag, "-")[1])
+				multiPartCount = ETagCount
 			}
-			
+
 			// if the checksums match we don't need to download because they are
 			// the same thing
 			log.Println("Etag from", bucketName, fileName)
