@@ -16,6 +16,16 @@ Special note for the `DEST` paramert. If you are downloading all files from a di
 
 ## Using it as init container in Kubernetes
 
+### Create Secret to Store Access and Secret Keys
+
+Because the access key and secret key should not sit in plane text in a git repo or `ConfigMap`. These credential will be stored in Kubernetes as a `Secret`
+
+``` shell
+Kubectl create secret generic minio-creds --from-literal=accesskey=youraccesskeyhere --from-literal=secretkey=yoursecretkeyhere
+```
+
+### Modify Container Spec
+
 Include this in your current deployment. Modify the `env` values to match your environment.  The name of the container can be changed to whatever you wish. Below example asssumes you already have a mount named `db-storage` in your main container. This should match where your primary container is going to read its data.
 
 ``` yaml
@@ -26,9 +36,15 @@ Include this in your current deployment. Modify the `env` values to match your e
     - name: MINIO_URL
       value: "minio.k8sdev.example.com"
     - name: ACCESSKEY
-      value: "AKIAIOSFODNN7EXAMPLE"
+      valueFrom:
+        secretKeyRef:
+          name: minio-creds
+          key: accesskey
     - name: SECRETKEY
-      value: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+      valueFrom:
+        secretKeyRef:
+          name: minio-creds
+          key: secretkey
     - name: SRC
       value: "training-data/foo/"
     - name: DEST
@@ -37,9 +53,6 @@ Include this in your current deployment. Modify the `env` values to match your e
     - mountPath: /data
       name: db-storage
 ```
-
-TODO:
-Create a secret to hold your access and secret keys
 
 ## Run locally for testing
 
