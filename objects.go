@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,7 +12,25 @@ import (
 	minio "github.com/minio/minio-go"
 )
 
-func getEtag(path string, partSizeMb int) string {
+func md5Hasher(dataChunk []byte) string {
+
+	//Initialize variable returnMD5String now in case an error has to be returned
+	var md5String string
+
+	//Open a new hash interface to write to
+	hash := md5.New()
+
+	//Get the 16 bytes hash
+	hashInBytes := hash.Sum(dataChunk)[:16]
+
+	//Convert the bytes to a string
+	md5String = hex.EncodeToString(hashInBytes)
+
+	return md5String
+
+}
+
+func eTagger(path string, partSizeMb int) string {
 	partSize := partSizeMb * 1024 * 1024
 	content, _ := ioutil.ReadFile(path)
 	fileSize := len(content)
@@ -43,7 +62,6 @@ func getEtag(path string, partSizeMb int) string {
 
 // checksumMatch - returns true if they match, false if they do not match
 func checksumMatch(remoteChecksum, localFilePath string) bool {
-
 	// check if local file exists. If not return false right away
 	_, err := os.Stat(localFilePath)
 	if err != nil {
@@ -51,18 +69,36 @@ func checksumMatch(remoteChecksum, localFilePath string) bool {
 		return false
 	}
 
-	// get md5sum of local file
-	localChecksum := getEtag(localFilePath, 64)
+	// doing a normal md5checksum and my multi-part function checks.
+	// There are instances where a regular md5 is used and where the multi-part
+	// hash is used where you wouldn't always expect them. Checking both scenarios.
+	//get md5sum of local file
+	fileContent, _ := ioutil.ReadFile(localFilePath)
+	localMd5Checksum := md5Hasher(fileContent)
 	if err != nil {
-		log.Println("Error getting local md5 checksum", err)
+		log.Println("Error getting local MD5 checksum", err)
 		return false
 	}
 
-	log.Println("Local Sum:", localChecksum, "Remote Sum:", remoteChecksum)
 	// compare local md5 with remote md5
-	if string(localChecksum) == remoteChecksum {
+	if string(localMd5Checksum) == remoteChecksum {
+		log.Println("Local Sum:", localMd5Checksum, "Remote Sum:", remoteChecksum)
 		return true
 	}
+
+	// get multi-part ETag checksum of local file
+	localEtagChecksum := eTagger(localFilePath, 64)
+	if err != nil {
+		log.Println("Error getting local Etag checksum", err)
+		return false
+	}
+
+	// compare local multi-part etag with remote multi-part etag
+	if string(localEtagChecksum) == remoteChecksum {
+		log.Println("Local Sum:", localEtagChecksum, "Remote Sum:", remoteChecksum)
+		return true
+	}
+
 	// return false by default
 	return false
 
