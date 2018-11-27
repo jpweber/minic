@@ -21,7 +21,7 @@ Special note for the `DEST` paramert. If you are downloading all files from a di
 Because the access key and secret key should not sit in plane text in a git repo or `ConfigMap`. These credential will be stored in Kubernetes as a `Secret`
 
 ``` shell
-Kubectl create secret generic minio-creds --from-literal=accesskey=youraccesskeyhere --from-literal=secretkey=yoursecretkeyhere
+kubectl create secret generic minio-creds --from-literal=accesskey=youraccesskeyhere --from-literal=secretkey=yoursecretkeyhere
 ```
 
 ### Modify Container Spec
@@ -79,5 +79,5 @@ docker run -ti -v /tmp:/tmp \
 -e SECRETKEY="xs3fx83cMkV7Oh+6jlGGTt9kTmT5D6yoQLm9+L5X" \
 -e SRC="vectorizer/roles" \
 -e DEST="/tmp/minio-tests/examples/" \
-jpweber/minio-init-dl:0.2.4
+jpweber/minio-init-dl:0.3.4
 ```
