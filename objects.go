@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -12,21 +13,32 @@ import (
 	minio "github.com/minio/minio-go"
 )
 
-func md5Hasher(dataChunk []byte) string {
+func md5Hasher(filePath string) (string, error) {
 
 	//Initialize variable returnMD5String now in case an error has to be returned
-	var md5String string
+	var returnMD5String string
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return returnMD5String, err
+	}
+	defer file.Close()
 
 	//Open a new hash interface to write to
 	hash := md5.New()
 
+	//Copy the file in the hash interface and check for any error
+	if _, err := io.Copy(hash, file); err != nil {
+		return returnMD5String, err
+	}
+
 	//Get the 16 bytes hash
-	hashInBytes := hash.Sum(dataChunk)[:16]
+	hashInBytes := hash.Sum(nil)[:16]
 
 	//Convert the bytes to a string
-	md5String = hex.EncodeToString(hashInBytes)
+	returnMD5String = hex.EncodeToString(hashInBytes)
 
-	return md5String
+	return returnMD5String, nil
 
 }
 
@@ -73,8 +85,8 @@ func checksumMatch(remoteChecksum, localFilePath string) bool {
 	// There are instances where a regular md5 is used and where the multi-part
 	// hash is used where you wouldn't always expect them. Checking both scenarios.
 	//get md5sum of local file
-	fileContent, _ := ioutil.ReadFile(localFilePath)
-	localMd5Checksum := md5Hasher(fileContent)
+	// fileContent, _ := ioutil.ReadFile(localFilePath)
+	localMd5Checksum, err := md5Hasher(localFilePath)
 	if err != nil {
 		log.Println("Error getting local MD5 checksum", err)
 		return false
@@ -82,7 +94,7 @@ func checksumMatch(remoteChecksum, localFilePath string) bool {
 
 	// compare local md5 with remote md5
 	if string(localMd5Checksum) == remoteChecksum {
-		log.Println("Local Sum:", localMd5Checksum, "Remote Sum:", remoteChecksum)
+		log.Println("Local MD5 CheckSum:", localMd5Checksum, "Remote MD5 CheckSum:", remoteChecksum)
 		return true
 	}
 
@@ -95,7 +107,7 @@ func checksumMatch(remoteChecksum, localFilePath string) bool {
 
 	// compare local multi-part etag with remote multi-part etag
 	if string(localEtagChecksum) == remoteChecksum {
-		log.Println("Local Sum:", localEtagChecksum, "Remote Sum:", remoteChecksum)
+		log.Println("Local multi-part ETag:", localEtagChecksum, "Remote multi-part ETag:", remoteChecksum)
 		return true
 	}
 
