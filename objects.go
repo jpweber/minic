@@ -150,6 +150,8 @@ func getFiles(client *minio.Client, filesToDownload []string, bucketName, dest s
 			err = client.FGetObject(bucketName, fileName, dest+"/"+fileName, minio.GetObjectOptions{})
 			if err != nil {
 				log.Println("Error downloading file ", err)
+				workerPool <- true
+				wg.Done()
 				return
 			}
 
